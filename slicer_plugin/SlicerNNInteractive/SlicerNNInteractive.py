@@ -271,6 +271,9 @@ class SlicerNNInteractiveWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
         with slicer.util.NodeModify(display_node):
             for segment_id in segment_ids:
                 display_node.SetSegmentOpacity2DFill(segment_id, fill_opacity)
+                segment = segmentation.GetSegment(segment_id)
+                if segment:
+                    segment.SetColor(1.0, 0.0, 0.0)
         
         
     def setup_auto_save(self):
@@ -295,6 +298,14 @@ class SlicerNNInteractiveWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
         if not self.directory:
             return None
         
+        # Get ref volume name
+        volume_node = self.get_volume_node()
+        volume_name = volume_node.GetName() if volume_node else "unknown_volume"
+
+        # Clean volume name for filename
+        import re
+        volume_name_clean = re.sub(r'[^a-zA-Z0-9_-]', '_', volume_name)
+        
         # Determine save directory based on review mode
         if self.ui.CorrectionButton.isChecked():
             save_dir = os.path.join(self.directory, "review_correction")
@@ -309,10 +320,10 @@ class SlicerNNInteractiveWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
         
         # Generate appropriate filename
         if is_final:
-            filename = f"FINAL_{timestamp}.nii.gz"
+            filename = f"FINAL_{volume_name_clean}_{timestamp}.nii.gz"
         else:
             prefix = prompt_type if prompt_type else action_type
-            filename = f"{prefix}_{timestamp}.nii.gz"
+            filename = f"{prefix}_{volume_name_clean}_{timestamp}.nii.gz"
 
         filepath = os.path.join(save_dir, filename)
         
@@ -349,7 +360,8 @@ class SlicerNNInteractiveWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
                 'action': action_type,
                 'prompt_type': prompt_type,
                 'is_reset':action_type == "reset",
-                'is_final': is_final 
+                'is_final': is_final,
+                'reference_volume': volume_name
             }
 
             if self.ui.CorrectionButton.isChecked():
